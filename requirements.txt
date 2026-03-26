@@ -1,0 +1,5 @@
+ollama
+ddgs
+httpx
+beautifulsoup4
+rich
