@@ -1,5 +1,6 @@
 import httpx
 from bs4 import BeautifulSoup
+from config import SCRAPE_MAX_CHARS
 
 
 def scrape(url: str) -> str:
@@ -35,7 +36,7 @@ def scrape(url: str) -> str:
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         cleaned_text = "\n".join(lines)
         
-        return cleaned_text[:3000] if cleaned_text else ""
+        return cleaned_text[:SCRAPE_MAX_CHARS] if cleaned_text else ""
         
     except Exception as e:
         return ""
