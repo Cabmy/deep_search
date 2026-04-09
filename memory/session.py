@@ -27,10 +27,6 @@ class SessionMemory:
         if len(self._history.messages) > self.max_messages:
             self._history.messages = self._history.messages[-self.max_messages:]
     
-    def get_messages(self) -> list[BaseMessage]:
-        """获取所有消息"""
-        return self._history.messages
-    
     def get_context_string(self) -> str:
         """获取历史上下文字符串"""
         if not self._history.messages:
