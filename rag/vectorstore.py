@@ -4,7 +4,6 @@ from typing import Optional, Any
 import chromadb
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_core.vectorstores import VectorStoreRetriever
 
 from config import CHROMA_PERSIST_DIR, CHROMA_COLLECTION_NAME
 from llm import get_embeddings
@@ -35,12 +34,6 @@ class VectorStore:
             return []
         return self.vectorstore.add_documents(documents)
     
-    def add_text(self, text: str, metadata: Optional[dict[str, Any]] = None) -> Optional[str]:
-        """添加单条文本"""
-        doc = Document(page_content=text, metadata=metadata or {})
-        ids = self.add_documents([doc])
-        return ids[0] if ids else None
-    
     def similarity_search(self, query: str, k: int = 4) -> list[Document]:
         """相似度检索"""
         return self.vectorstore.similarity_search(query, k=k)
@@ -57,12 +50,6 @@ class VectorStore:
         except Exception:
             pass  # Collection 不存在
         self._vectorstore = None
-    
-    def get_retriever(self, search_kwargs: Optional[dict[str, Any]] = None) -> VectorStoreRetriever:
-        """获取 LangChain Retriever"""
-        return self.vectorstore.as_retriever(
-            search_kwargs=search_kwargs or {"k": 4}
-        )
 
 
 # 全局单例

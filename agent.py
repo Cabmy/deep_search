@@ -113,7 +113,11 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
         if related_history:
             memory_context = "\n\n历史研究参考:\n"
             for r in related_history:
-                memory_context += f"- 曾研究过: {r['question'][:80]}\n"
+                memory_context += f"- 曾研究过: {r['question']}\n"
+                if r.get('summary'):
+                    # 显示更长的摘要（最多600字），帮助LLM更好地利用历史知识
+                    summary_preview = r['summary'][:600] + "..." if len(r['summary']) > 600 else r['summary']
+                    memory_context += f"  历史研究摘要:\n{summary_preview}\n"
     
     # 创建并运行 Agent
     status("thinking")
@@ -165,7 +169,7 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
                 persistent_memory = get_persistent_memory()
                 persistent_memory.save_research(
                     question=question,
-                    summary=report[:500],
+                    summary=report[:2000],  # 扩大到2000字，保留更多上下文
                     sources=[],
                 )
         

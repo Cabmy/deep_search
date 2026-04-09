@@ -26,16 +26,6 @@ class PersistentMemory:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS key_findings (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    research_id INTEGER,
-                    finding TEXT NOT NULL,
-                    confidence REAL DEFAULT 0.5,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (research_id) REFERENCES research_history(id)
-                )
-            """)
             conn.commit()
     
     def save_research(self, question: str, summary: str, sources: Optional[list[str]] = None) -> int:
@@ -48,15 +38,7 @@ class PersistentMemory:
             conn.commit()
             return cursor.lastrowid if cursor.lastrowid is not None else 0
     
-    def add_finding(self, research_id: int, finding: str, confidence: float = 0.5) -> None:
-        """添加研究发现"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "INSERT INTO key_findings (research_id, finding, confidence) VALUES (?, ?, ?)",
-                (research_id, finding, confidence)
-            )
-            conn.commit()
-    
+
     def get_recent_research(self, limit: int = 10) -> list[dict[str, Any]]:
         """获取最近的研究历史"""
         with sqlite3.connect(self.db_path) as conn:
@@ -76,24 +58,6 @@ class PersistentMemory:
                 (f"%{query}%", f"%{query}%", limit)
             )
             return [dict(row) for row in cursor.fetchall()]
-    
-    def get_context_summary(self, query: Optional[str] = None) -> str:
-        """获取记忆上下文摘要"""
-        related: list[dict[str, Any]]
-        if query:
-            related = self.search_related(query, limit=3)
-        else:
-            related = self.get_recent_research(limit=3)
-        
-        if not related:
-            return "暂无历史研究记录。"
-        
-        summary = "相关历史研究:\n"
-        for r in related:
-            summary += f"- 问题: {r['question'][:50]}...\n"
-            summary += f"  摘要: {r['summary'][:100]}...\n\n" if r['summary'] else "\n"
-        
-        return summary
 
 
 # 全局持久化记忆
