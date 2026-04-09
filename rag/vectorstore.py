@@ -2,6 +2,9 @@
 
 from typing import Optional, Any
 import chromadb
+import os
+import sqlite3
+import shutil
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
@@ -43,13 +46,62 @@ class VectorStore:
         return self.vectorstore.similarity_search_with_score(query, k=k)
     
     def clear(self) -> None:
-        """清空当前 collection"""
+        """清空当前 collection。
+
+        保守策略：先通过 chromadb API 删除 collection（如果存在），
+        然后读取 chroma.sqlite3 中剩余的 segment id 列表，
+        删除 persist_dir 下不在该列表中的 UUID 目录（仅删除包含典型 segment 文件的目录），
+        避免误删其它文件。
+        """
         client = chromadb.PersistentClient(path=self.persist_dir)
         try:
             client.delete_collection(self.collection_name)
         except Exception:
-            pass  # Collection 不存在
+            pass  # Collection 可能不存在或已被删除
+        # 重置缓存的 vectorstore 实例
         self._vectorstore = None
+
+        # 清理未被引用的 UUID 目录（保守删除：仅删除典型 segment 文件目录）
+        try:
+            db_path = os.path.join(self.persist_dir, "chroma.sqlite3")
+            remaining_segment_ids: set[str] = set()
+            if os.path.exists(db_path):
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cur = conn.cursor()
+                    cur.execute("SELECT id FROM segments")
+                    rows = cur.fetchall()
+                    remaining_segment_ids = {r[0] for r in rows if r and r[0]}
+                except Exception:
+                    # 若读取 DB 失败，则不进行删除以避免误删
+                    remaining_segment_ids = set()
+                finally:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+
+            # 列出 persist_dir 下的子目录并删除不在 remaining_segment_ids 中的目录（且目录内含典型文件）
+            entries = [os.path.join(self.persist_dir, e) for e in os.listdir(self.persist_dir)]
+            dirs = [p for p in entries if os.path.isdir(p)]
+            typical_files = {"data_level0.bin", "header.bin", "length.bin", "link_lists.bin"}
+            for d in dirs:
+                base = os.path.basename(d)
+                if base in remaining_segment_ids:
+                    continue
+                try:
+                    files = set(os.listdir(d))
+                except Exception:
+                    continue
+                # 仅当目录看起来像一个 Chroma segment 数据目录时才删除
+                if typical_files.issubset(files):
+                    try:
+                        shutil.rmtree(d)
+                    except Exception:
+                        pass
+        except Exception:
+            # 容错：任何异常都不应阻止程序运行
+            pass
 
 
 # 全局单例
