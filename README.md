@@ -94,17 +94,28 @@ python main.py
 
 ```python
 # LLM 配置
-LLM_MODEL = "qwen2.5"              # 推理模型
-EMBEDDING_MODEL = "qwen2.5"        # Embedding 模型
+LLM_PROVIDER = "ollama"            # 直接改这里切换: "ollama" | "bailian"
+USE_ENV_OVERRIDE = False           # True 时允许环境变量覆盖配置
+
+# Ollama（本地）
+OLLAMA_LLM_MODEL = "qwen2.5:7b"
+OLLAMA_EMBEDDING_MODEL = "qwen2.5:1.5b"
+
+# 阿里百炼（DashScope）
+BAILIAN_API_KEY = "your_api_key"
+BAILIAN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+BAILIAN_LLM_MODEL = "qwen-plus"
+BAILIAN_EMBEDDING_MODEL = "text-embedding-v3"
 
 # 代理设置
 PROXY = "http://127.0.0.1:7890"    # 搜索代理（Clash）
 
 # ChromaDB 配置
 CHROMA_PERSIST_DIR = "./chroma_db" # 向量库路径
+CHROMA_COLLECTION_NAME = f"research_docs_{LLM_PROVIDER}"  # 不同 provider 分库
 
 # 记忆管理
-MEMORY_MODE = "session"            # "session" | "persistent" | "both"
+MEMORY_MODE = "session"            # "session" | "persistent"
 
 # Agent 配置
 AGENT_MAX_ITERATIONS = 15          # 最大 ReAct 循环次数
@@ -113,7 +124,7 @@ AGENT_MAX_ITERATIONS = 15          # 最大 ReAct 循环次数
 ## RAG 工作机制
 
 1. **抓取时自动入库**：`scrape_tool` 抓取网页后自动调用 `vectorstore.add_documents()`
-2. **语义检索**：`rag_retrieve_tool` 使用 Ollama Embeddings 进行向量化，ChromaDB 相似度检索
+2. **语义检索**：`rag_retrieve_tool` 使用当前 `LLM_PROVIDER` 对应 Embeddings 进行向量化，ChromaDB 相似度检索
 3. **复用避免重复**：同一会话内，Agent 可通过 RAG 检索已抓取内容，无需重复抓取
 
 ## 记忆管理
@@ -133,7 +144,7 @@ AGENT_MAX_ITERATIONS = 15          # 最大 ReAct 循环次数
 
 - 默认代理：`http://127.0.0.1:7890` (Clash)
 - 修改位置：`config.py` 中的 `PROXY` 常量
-- **注意**：网页抓取不经过代理
+- **注意**：网页抓取不经过代理；当 `LLM_PROVIDER="bailian"` 时，搜索代理会自动关闭
 
 ## 依赖项
 
@@ -142,11 +153,13 @@ AGENT_MAX_ITERATIONS = 15          # 最大 ReAct 循环次数
 ```
 langchain>=0.3.0
 langchain-ollama>=0.2.0
+langchain-openai>=0.2.0
 langchain-chroma>=0.2.0
 langchain-community>=0.3.0
 langgraph>=0.2.0
 chromadb>=0.5.0
 ollama
+dashscope
 ddgs
 httpx
 beautifulsoup4

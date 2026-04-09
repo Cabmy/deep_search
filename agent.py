@@ -5,7 +5,7 @@ import re
 from typing import Callable, Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.callbacks import BaseCallbackHandler
 
 from llm import get_llm, chat
@@ -33,14 +33,14 @@ class ToolCallbackHandler(BaseCallbackHandler):
 
 
 # Agent 系统提示
-SYSTEM_PROMPT = """你是一个中文研究助手。
+SYSTEM_PROMPT = """你是一个中文研究助手。如果用户输入包含某些限制条件或者要求，你首先应该遵守用户的限制条件，发生冲突时用户限制条件的优先级大于下面的系统提示限制条件
 
 ## 工作流程（严格按顺序执行）:
 
 ### 第1步: 搜索
-调用 search_tool，关键词必须是中文。
+调用 search_tool，关键词由你自己根据问题来确定，但必须是中文。
 
-### 第2步: 抓取网页（重要！）
+### 第2步: 抓取网页
 - 必须抓取至少3个URL
 - 选择URL时，优先选择URL中包含目标关键词的链接
 - 例如查"上海天气"，选 tianqi.com/shanghai/ 而不是 tianqi.com/（首页可能是其他城市）
@@ -107,7 +107,7 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
     
     # 准备记忆上下文
     memory_context = ""
-    if use_memory and MEMORY_MODE in ("persistent", "both"):
+    if use_memory and MEMORY_MODE == "persistent":
         persistent_memory = get_persistent_memory()
         related_history = persistent_memory.search_related(question, limit=2)
         if related_history:
@@ -134,7 +134,9 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
         if memory_context:
             user_message += memory_context
 
-        messages = [HumanMessage(content=user_message)]
+        from datetime import datetime
+        current_time = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+        messages = [SystemMessage(content=f"当前日期与时间: {current_time}"), HumanMessage(content=user_message)]
         
         # 运行 Agent（带详细日志）
         result: dict[str, Any] = agent.invoke(
@@ -165,7 +167,7 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
             session_memory.add_ai_message(report)
             
             # 持久化保存
-            if MEMORY_MODE in ("persistent", "both"):
+            if MEMORY_MODE == "persistent":
                 persistent_memory = get_persistent_memory()
                 persistent_memory.save_research(
                     question=question,
@@ -178,7 +180,7 @@ def research(question: str, on_status: Callable[[Any], None] | None = None, use_
         
     except Exception as e:
         status("error")
-        return f"# 研究失败\n\n执行过程中出现错误: {str(e)}\n\n请检查网络连接和 Ollama 服务状态后重试。"
+        return f"# 研究失败\n\n执行过程中出现错误: {str(e)}\n\n请检查网络连接以及当前 LLM_PROVIDER 对应服务/密钥后重试。"
 
 
 # # 保持向后兼容的 decompose 函数

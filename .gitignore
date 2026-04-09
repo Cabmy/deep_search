@@ -9,3 +9,4 @@ chroma_db/
 .claude/
 memory.db
 .vscode/
+config.py
